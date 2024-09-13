@@ -1,11 +1,11 @@
-import {FaGithub, FaDiscord, FaReddit, FaTwitter} from "react-icons/fa";
+import { FaGithub, FaDiscord, FaReddit, FaTwitter } from "react-icons/fa";
 
 export const SocialNetworks = () => {
   return (
     <div className="flex justify-center gap-6">
       <a
         className="inline-block align-middle text-2xl"
-        href="https://github.com/we-craft-code"
+        href="https://github.com/evedes/we-craft-code"
         target="_blank"
         rel="noopener noreferrer"
       >
