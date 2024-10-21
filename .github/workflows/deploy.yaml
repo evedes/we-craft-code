@@ -1,0 +1,87 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create cache directory
+        run: mkdir -p /tmp/we-craft-code/.buildx-cache
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/we-craft-code/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push Docker images
+        run: |
+          docker build -t ghcr.io/${{ github.repository }}/frontend:latest ./frontend
+          docker push ghcr.io/${{ github.repository }}/frontend:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code (for access to docker-compose-wecraftcode.yaml)
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose-wecraftcode.yaml to Digital Ocean Droplet
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          source: "docker-compose-wecraftcode.yaml"
+          target: /home/${{ secrets.DROPLET_USER}}/
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+
+      - name: Deploy to DigitalOcean Droplet
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: 22
+          script: |
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/${{ github.repository }}/backend:latest
+            docker pull ghcr.io/${{ github.repository }}/frontend:latest
+            docker compose -f docker-compose-wecraftcode.yaml up -d
+
+      - name: List and remove non-latest images in Digital Ocean Droplet
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          port: 22
+          script: |
+            images=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep -v ':latest')
+            echo "Images to be removed:"
+            echo "$images"
+
+            while IFS= read -r image; do
+             repo_tag=$(echo $image | awk '{print $1}')
+             image_id=$(echo $image | awk '{print $2}')
+             echo "Removing image $repo_tag with ID $image_id"
+             docker rmi "$image_id" || true
+            done <<< "$images"
