@@ -1,0 +1,14 @@
+{
+  "name": "wecraftcode.org",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev:up": "docker compose -f docker-compose.dev.yaml up",
+    "dev:down": "docker compose -f docker-compose.dev.yaml down --remove-orphans"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "packageManager": "pnpm@9.9.0"
+}

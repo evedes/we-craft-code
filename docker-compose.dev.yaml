@@ -1,0 +1,11 @@
+services:
+  frontend:
+    image: node:20-alpine
+    hostname: client
+    container_name: wecraftcode-frontend
+    command: sh -c "npm i -g pnpm && cd /app && pnpm install && pnpm dev"
+    ports:
+      - 3000:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
